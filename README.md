@@ -1,4 +1,4 @@
-###bbedgo for PostgreSQL
+### bbedgo for PostgreSQL
 
 **好吃又好玩的块解析工具bbed in go**
 
