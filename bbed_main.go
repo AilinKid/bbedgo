@@ -266,13 +266,16 @@ func relName2Path(relName string) (path string) {
 func (s *server) doHelp() {
 	fmt.Print("BBED_GO: RELEASE 1.1.0 -BETA\n" +
 		"Copyright (c) 2019/1/11, arenatlx and/or its affiliates.  All rights reserved.\n" +
-		"********************Test for internal detection of PostgreSQL*****************\n" +
-		"help                         : ask for help\n" +
-		"set block [block number]     : set current pointer to specified block\n" +
-		"set offset [offset in block] : set current pointer to specified pos in block\n" +
-		"show block                   : show current block number\n" +
-		"show offset                  : show current offset in block\n" +
-		"exit                         : quit the system\n\n")
+		"+-------------------Test for internal detection of PostgreSQL------------------+\n" +
+		"| help                         : ask for help                                  |\n" +
+		"| set table [table name]       : set the table name (PGDATA env needed)        |\n" +
+		"| set block [block number]     : set current pointer to specified block        |\n" +
+		"| set offset [offset in block] : set current pointer to specified pos in block |\n" +
+		"| show block                   : show current block number                     |\n" +
+		"| show offset                  : show current offset in block                  |\n" +
+		"| show phd                     : show page_header_data structure in block      |\n" +
+		"| exit                         : quit the system                               |\n" +
+		"+------------------------------------------------------------------------------+\n")
 }
 
 func (s *server) doShow(cmd command) {
