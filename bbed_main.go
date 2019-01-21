@@ -113,21 +113,21 @@ type tuple struct {
 
 func main() {
 	//test relName2Path ok
-	fmt.Println(unsafe.Sizeof(HeapTupleHeaderData{}))
-	path, attNum, attName, attLen := relName2Path("remotepg")
-	fmt.Println(path, attNum, attName[2], len(attLen))
+	//fmt.Println(unsafe.Sizeof(HeapTupleHeaderData{}))
+	//path, attNum, attName, attLen := relName2Path("remotepg")
+	//fmt.Println(path, attNum, attName[2], len(attLen))
 	//test the env
-	fmt.Println("env:", getPgdataEnv())
+	//fmt.Println("env:", getPgdataEnv())
 	//
 	ser := server{}
 	ser.Run()
 	//
 	//fmt.Println(unsafe.Sizeof(pageHeader{}))
-	file, err := os.Open("/Users/macbook/postgres/data/base/12558/17544")
-	if err != nil {
-		panic(err)
-	}
-	file.Close()
+	//file, err := os.Open("/Users/macbook/postgres/data/base/12558/17544")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//file.Close()
 }
 
 type server struct {
@@ -393,45 +393,32 @@ func relName2Path(relName string) (path string, relOid int, attName []string, at
 func (s *server) doHelp() {
 	fmt.Print("BBED_GO: RELEASE 1.1.0 -BETA\n" +
 		"Copyright (c) 2019/1/11, arenatlx and/or its affiliates.  All rights reserved.\n" +
-		"+-------------------Test for internal detection of PostgreSQL------------------+\n" +
-		"| help                         : ask for help                                  |\n" +
-		"| set table [table name]       : set the table name (PGDATA env needed)        |\n" +
-		"| set block [block number]     : set current pointer to specified block        |\n" +
-		"| set offset [offset in block] : set current pointer to specified pos in block |\n" +
-		"| show block                   : show current block number                     |\n" +
-		"| show offset                  : show current offset in block                  |\n" +
-		"| show phd                     : show page_header_data structure in block      |\n" +
-		"| exit                         : quit the system                               |\n" +
-		"+------------------------------------------------------------------------------+\n")
+		"+-------------------Test for internal detection of PostgreSQL-------------------+\n" +
+		"| help                         : ask for help                                   |\n" +
+		"| set table [table name]       : set the table name (PGDATA env needed)         |\n" +
+		"| set block [block number]     : set current pointer to specified block         |\n" +
+		"| set offset [offset in block] : set current pointer to specified pos in block  |\n" +
+		"| show block                   : show current block number                      |\n" +
+		"| show offset                  : show current offset in block                   |\n" +
+		"| show phd                     : show page_header_data structure in block       |\n" +
+		"| show linp [linp id]          : show specified id start from 1                 |\n" +
+		"| show linps                   : show all linp structure in this block          |\n" +
+		"| show tuple [tuple id]        : show tuple header and data by linp id(not safe)|\n" +
+		"| exit                         : quit the system                                |\n" +
+		"+-------------------------------------------------------------------------------+\n")
 }
 
 func (s *server) doShow(cmd command) {
-	if cmd.cmd == SHOW_OFFSET {
-
-	}
-	if cmd.cmd == SHOW_BLOCK {
-		fmt.Println("BLOCK NUMBER : ", s.blockNum)
-	}
-	if cmd.cmd == SHOW_PAGE_HEADER_DATA {
-		fmt.Println("reading block ... ", s.blockNum)
-		s.doReadAtOffset()
-		fmt.Println(s.data)
-		s.mapPageHeaderData()
-	}
-	if cmd.cmd == SHOW_LINP {
-
-	}
 	switch cmd.cmd {
 	case SHOW_TABLE:
 
 	case SHOW_OFFSET:
 		fmt.Println("BLOCK OFFSET : ", s.offset)
-	case SET_BLOCK:
+	case SHOW_BLOCK:
 		fmt.Println("BLOCK NUMBER : ", s.blockNum)
 	case SHOW_PAGE_HEADER_DATA:
-		fmt.Println("reading block ... ", s.blockNum)
-		s.doReadAtOffset()
-		fmt.Println(s.data)
+		//fmt.Println("reading block ... ", s.blockNum)
+		//fmt.Println(s.data)
 		s.mapPageHeaderData()
 	case SHOW_LINPS:
 		s.getAllLinps()
@@ -445,10 +432,15 @@ func (s *server) doShow(cmd command) {
 func (s *server) doSet(cmd command) {
 	if cmd.cmd == SET_BLOCK {
 		s.blockNum = cmd.args.(int)
-		fmt.Println("SET BLOCK : ", cmd.args)
+		err := s.doReadAtOffset() //refresh data
+		if err != nil {
+			fmt.Println("SET BLOCK ERROR (cann't load data): ", cmd.args)
+		} else {
+			fmt.Println("SET BLOCK: ", cmd.args)
+		}
 	}
 	if cmd.cmd == SET_OFFSET {
-		s.offset = cmd.args.(int)
+		s.offset = cmd.args.(int) //now we do nothing for the offset,you can use linp id to check
 		fmt.Println("SET OFFSET : ", cmd.args)
 	}
 	if cmd.cmd == SET_TABLE {
@@ -466,7 +458,7 @@ func (s *server) doSet(cmd command) {
 }
 
 func (s *server) doReadAtOffset() error {
-	fmt.Println("path ", s.relPath)
+	//fmt.Println("path ", s.relPath)
 	file, err := os.Open(s.relPath)
 	if err != nil {
 		panic(err)
@@ -478,11 +470,13 @@ func (s *server) doReadAtOffset() error {
 	}
 	fmt.Println("file size:", stat.Size())
 	offset := s.blockNum * PAGESIZE
+	//fmt.Println(offset)
 	byteBuf := make([]byte, PAGESIZE)
 	n, err := s.file.ReadAt(byteBuf, int64(offset))
 	if err != nil || n != PAGESIZE {
 		return errors.New("read fail")
 	}
+	//fmt.Println(byteBuf)
 	//数组和切片转化,而不是s.data = byteBuf.
 	for i := 0; i < 8192; i++ {
 		s.data[i] = byteBuf[i]
@@ -492,7 +486,7 @@ func (s *server) doReadAtOffset() error {
 
 func (s *server) mapPageHeaderData() {
 	header := (*pageHeader)(unsafe.Pointer(&s.data))
-	fmt.Printf("tuple num :\n"+
+	fmt.Printf("block : "+strconv.Itoa(s.blockNum)+"\n"+
 		"+----------PageHeaderData----------+\n"+
 		"| xlogid        :   %10d     |\n"+
 		"| xrecoff       :   %10d     |\n"+
@@ -510,8 +504,6 @@ func (s *server) mapPageHeaderData() {
 	//store the upper and lower
 	s.upper = header.pd_upper
 	s.lower = header.pd_lower
-
-	s.mapLinpHeaderData(1, 0, true)
 }
 
 func (s *server) getSpecifiedLinp(id int, show bool) (linp_t, bool) {
@@ -548,7 +540,7 @@ func (s *server) getAllLinps() {
 
 func (s *server) mapLinpHeaderData(id, offset uint16, show bool) linp_t {
 	//这个指针转化真的骚
-	linp := (*linp)(unsafe.Pointer(uintptr(unsafe.Pointer(&s.data)) + uintptr(uintptr(offset)+6*unsafe.Sizeof(int32(0)))))
+	linp := (*linp)(unsafe.Pointer(uintptr(unsafe.Pointer(&s.data)) + uintptr(uintptr(offset)+HEADERSIZE*unsafe.Sizeof(byte(0)))))
 	linp_v := linp.linp_val
 	//fmt.Println("linp_v", linp_v)
 	//位解析
@@ -620,7 +612,7 @@ func string2UnsignInt(s string) uint {
 }
 
 func (s *server) getTupleMeta(id int) {
-	linp_t, ok := s.getSpecifiedLinp(id, true)
+	linp_t, ok := s.getSpecifiedLinp(id, false)
 	if !ok {
 		fmt.Println("invalid linp id")
 		return
@@ -631,7 +623,23 @@ func (s *server) getTupleMeta(id int) {
 func (s *server) mapTupleData(id int, offset, length uint, show bool) {
 	//想要解析tuple，需要表的模式信息
 	heapTupleHeaderData := (*HeapTupleHeaderData)(unsafe.Pointer(uintptr(unsafe.Pointer(&s.data)) + uintptr(uintptr(offset))))
-	//fmt.Println(heapTupleHeaderData)
+	//show heapTupleHeaderData
+	fmt.Printf("tuple(linp) id : "+strconv.Itoa(int(id))+"\n"+
+		"+----heapTupleHeaderData----+\n"+
+		"| t_xmin      : %10d  |\n"+
+		"| t_xmax      : %10d  |\n"+
+		"| t_cid       : %10d  |\n"+
+		"| t_ctid:hi   : %10d  |\n"+
+		"| t_ctid:lo   : %10d  |\n"+
+		"| t_ctid:posid: %10d  |\n"+
+		"| t_infomask2 : %10d  |\n"+
+		"| t_infomask  : %10d  |\n"+
+		"| t_hoff      : %10d  |\n"+
+		"+---------------------------+\n", heapTupleHeaderData.t_xmin, heapTupleHeaderData.t_xmax,
+		heapTupleHeaderData.t_cid, heapTupleHeaderData.t_ctid.ip_blkid.bi_hi, heapTupleHeaderData.t_ctid.ip_blkid.bi_lo,
+		heapTupleHeaderData.t_ctid.ip_posid, heapTupleHeaderData.t_infomask2,
+		heapTupleHeaderData.t_infomask, heapTupleHeaderData.t_hoff)
+
 	offset += uint(heapTupleHeaderData.t_hoff) //data offset
 	//fmt.Println("attnum:" , s.attNum)
 	tempVal := make([]string, 0)
@@ -743,9 +751,14 @@ func (s *server) getInt32(offset uint) int32 {
 	return *int_val
 }
 
+//todo:  adding more type analysis...
+func (s *server) getInt16(offset uint) int16 {
+	return -1
+}
+
 func (s *server) getVarlena(offset uint) (string, uint) {
 	flag_val := (*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(&s.data)) + uintptr(uintptr(offset))))
-	fmt.Println(*flag_val)
+	// fmt.Println(*flag_val)
 	// this is just a one kind of case used for varchar(10)
 	// this varlena will store the len info in one byte in the data header
 	// the rule is like this:   xxxxxxx1
